@@ -6,7 +6,7 @@ import sys
 import re
 from itertools import permutations
 from itertools import combinations
-
+from tweets_cleaned import import 
 
 class Queue:
     def __init__(self):
@@ -44,7 +44,7 @@ class WindowAvgDegree(object):
         self.graph = {}
             
     # clean a single tweet if needed
-    def clean_tweet(self,tweet):
+    def remove_non_ascii(self,tweet):
         hashtags= set(pt[1:] for pt in tweet.split() if pt.startswith('#'))
         return [item.lower() for item in hashtags]
     
