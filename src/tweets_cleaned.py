@@ -8,7 +8,7 @@ infname = "../tweet_input/tweets.txt"
 outfname = "../tweet_output/ft1.txt"
 
 # clean a single tweet if needed
-def extract_hashtags(tweet):
+def clean_tweet(tweet):
     cleaned = False
     newtweet = ""
     for letter in tweet:
@@ -16,9 +16,10 @@ def extract_hashtags(tweet):
             newtweet += letter
         else:
             cleaned=True
-    return (1 if cleaned else 0,newtweet if cleaned else tweet)
+    newtweet = newtweet if cleaned else tweet
+    newtweet = newtweet.replace('\n','\\n').replace('\"','\\"').replace("\/","\\/")
+    return (1 if cleaned else 0,newtweet)
     
-
 
 def read_file_and_clean(infname,outfname):
     times_cleaned =0
@@ -31,9 +32,7 @@ def read_file_and_clean(infname,outfname):
             tweet = json.loads(tweet_json)
             if 'text' in tweet and 'created_at' in tweet:
                 tweet_txt = tweet['text']
-                (cleaned,new_tweet_text) = extract_hashtags(tweet_txt)
-#                 tweet['text'] = new_tweet_text
-#                 line = json.dumps(tweet)
+                (cleaned,new_tweet_text) = clean_tweet(tweet_txt)
                 target.write(new_tweet_text+" ("+tweet['created_at']+")\n")
                 times_cleaned += cleaned
     

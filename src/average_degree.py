@@ -44,7 +44,7 @@ class WindowAvgDegree(object):
         self.graph = {}
             
     # clean a single tweet if needed
-    def extract_hashtags(self,tweet):
+    def clean_tweet(self,tweet):
         hashtags= set(pt[1:] for pt in tweet.split() if pt.startswith('#'))
         return [item.lower() for item in hashtags]
     
