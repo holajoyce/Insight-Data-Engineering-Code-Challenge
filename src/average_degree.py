@@ -6,7 +6,7 @@ import sys
 import re
 from itertools import permutations
 from itertools import combinations
-from tweets_cleaned import import 
+from tweets_cleaned import remove_non_ascii
 
 class Queue:
     def __init__(self):
@@ -43,8 +43,8 @@ class WindowAvgDegree(object):
         # the hashtag graph
         self.graph = {}
             
-    # clean a single tweet if needed
-    def remove_non_ascii(self,tweet):
+    # deprecated, do not use
+    def extract_hashtags(self,tweet):
         hashtags= set(pt[1:] for pt in tweet.split() if pt.startswith('#'))
         return [item.lower() for item in hashtags]
     
@@ -89,11 +89,14 @@ class WindowAvgDegree(object):
     #         for c in combinations(hashtags,i):
     #             add_single_edge(tweet,c)
     
-    def avg_degree(self,graph):
+    # method to calculate graph degree
+    def avg_degree_and_prune(self,graph):
         num_nodes = len(graph.keys())
         degrees = 0
-        for related_nodes in graph.values():
-            degrees +=  len(related_nodes)
+        for key in graph.keys():
+            degrees +=  len(graph[key])
+            if len(graph[key])==0:
+                self.graph.pop(key,None)
         return round(degrees/num_nodes,2)
     
     def find_evicted_timestamps(self, curr_timestamp):
@@ -110,10 +113,24 @@ class WindowAvgDegree(object):
             evicted_hashtags.append(hashtags)
         return evicted_hashtags
         
+    def clean_hashtag(self,hashtag):
+        (_,newhashtag) = remove_non_ascii(hashtag)
+        return newhashtag.lower().strip()
+    
+    def extract_hash_tags(self,tweet):
+        #hashtags = [self.clean_hashtag(x['text']) for x in tweet['entities']['hashtags']]
+        hashtags = []
+        for x in tweet['entities']['hashtags']:
+            cleanedhashtag = self.clean_hashtag(x['text'])
+            if len(cleanedhashtag)>0:
+                hashtags.append(cleanedhashtag)
+        return hashtags
+    
     def process_tweet(self,tweet):
         if not tweet['entities']['hashtags']:
             return
-        hashtags = [(x['text']).lower() for x in tweet['entities']['hashtags']]
+        
+        hashtags = self.extract_hash_tags(tweet)
         curr_timestamp = int(tweet['timestamp_ms'])
         evicted_timestamps = self.find_evicted_timestamps(curr_timestamp)
         evicted_hashtags = self.find_evicted_hashtags(evicted_timestamps)
@@ -135,7 +152,7 @@ class WindowAvgDegree(object):
             self.time_dict[curr_timestamp] = hashtags
             
         if has_removed_edges or has_added_edges: 
-            self.degree = self.avg_degree(self.graph)
+            self.degree = self.avg_degree_and_prune(self.graph)
             
         return self.degree
         
