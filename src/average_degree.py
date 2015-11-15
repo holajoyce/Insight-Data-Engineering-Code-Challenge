@@ -113,7 +113,7 @@ class WindowAvgDegree(object):
     def process_tweet(self,tweet):
         if not tweet['entities']['hashtags']:
             return
-        hashtags = [x['text'] for x in tweet['entities']['hashtags']]
+        hashtags = [(x['text']).lower() for x in tweet['entities']['hashtags']]
         curr_timestamp = int(tweet['timestamp_ms'])
         evicted_timestamps = self.find_evicted_timestamps(curr_timestamp)
         evicted_hashtags = self.find_evicted_hashtags(evicted_timestamps)
