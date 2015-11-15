@@ -59,50 +59,51 @@ class WindowAvgDegree(object):
 #         return [item.lower() for item in hashtags]
     
     def remove_single_edge(self,graph,hashtags):
-        has_removed_edge = False
+        num_edges_removed = 0
         prev_hashtag = None
         for hashtag in hashtags:
             if not prev_hashtag == None:
                 if prev_hashtag in graph and hashtag in graph[prev_hashtag] :
                     graph[prev_hashtag].remove(hashtag)
-                    has_removed_edge = True
+                    num_edges_removed +=1
             prev_hashtag = hashtag
-        return has_removed_edge
+        return num_edges_removed
     
     # given a list of hashtags list, remove their edges from graph
     def remove_edges(self,graph,hashtags_list):
-        has_removed_edges = False
-        for hashtags in hashtags_list:
-            for p in permutations(hashtags):
-                has_removed_edges =self.remove_single_edge(graph, p)
+        removed_edges = 0
+        for hashtags in hashtags_list:  
+            # generate edges
+            for c in combinations(hashtags,2):
+                combo = list(c)
+                removed_edges +=self.remove_single_edge(graph, combo)
+                removed_edges +=self.remove_single_edge(graph, reversed(combo))
+        has_removed_edges = True if removed_edges>0 else False
         return has_removed_edges
     
     def add_single_edge(self,graph,hashtags):
-        has_added_edges = False
+        num_edges_added = 0
         prev_hashtag = None
         for hashtag in hashtags:
             if not prev_hashtag==None:
                 if not prev_hashtag in graph.keys():
-#                     graph[prev_hashtag] = BloomFilter(10000,0.01,'filter.bloom')
                     graph[prev_hashtag] = set()
                 if(not hashtag in graph[prev_hashtag]):
                     graph[prev_hashtag].add(hashtag)
-                    has_added_edges = True
+                    num_edges_added += 1
             prev_hashtag = hashtag
-        return has_added_edges
-    
+        return num_edges_added
     
     # using permutations to ensure bidirectional connection
     def add_edges(self,graph,hashtags):
-        added_edges = False
-        for p in permutations(hashtags):
-            added_edges =self.add_single_edge(graph, p)
-        return added_edges
-    #     hashtags.append(hashtags[len(hashtags)-1])
-    #     for i in range(len(hashtags),1,-1):
-    #         for c in combinations(hashtags,i):
-    #             add_single_edge(tweet,c)
-    
+        num_edges_added = 0
+        # generate edges
+        for c in combinations(hashtags,2):
+            combo = list(c)
+            num_edges_added +=self.add_single_edge(graph,combo)
+            num_edges_added +=self.add_single_edge(graph,reversed(combo))
+        has_added_edges =  True if num_edges_added>0 else  False
+        return has_added_edges
     
     def update_degree(self,value):
         self.degree_of_current_node+= len(value)
@@ -116,7 +117,8 @@ class WindowAvgDegree(object):
         # update graph
         self.graph = { k : self.update_degree(v) for k,v in self.graph.items() if v}
         # return degree
-        return round(self.degree_of_current_node/len(self.graph.keys()),2)
+        self.degree =  round(self.degree_of_current_node/len(self.graph.keys()),2)
+        return self.degree
     
     def evict_timestamps(self, curr_timestamp):
         evicted_timestamps = []
