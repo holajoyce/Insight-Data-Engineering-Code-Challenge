@@ -8,6 +8,7 @@ from itertools import permutations
 from itertools import combinations
 from tweets_cleaned import remove_non_ascii
 
+# can use heapq instead if tweets will be inputted out of order
 class Queue:
     def __init__(self):
         self.items = []
@@ -37,7 +38,7 @@ class WindowAvgDegree(object):
         # python dictionary are hashtables (no ordering)
         self.time_dict = {}
         
-        # use a queue to keep time order
+        # therefore, want to use a queue to keep time order
         self.time_queue = Queue()
         
         # the hashtag graph
@@ -58,7 +59,8 @@ class WindowAvgDegree(object):
                     has_removed_edge = True
             prev_hashtag = hashtag
         return has_removed_edge
-         
+    
+    # given a list of hashtags list, remove their edges from graph
     def remove_edges(self,graph,hashtags_list):
         has_removed_edges = False
         for hashtags in hashtags_list:
@@ -78,7 +80,9 @@ class WindowAvgDegree(object):
                     has_added_edges = True
             prev_hashtag = hashtag
         return has_added_edges
-        
+    
+    
+    # using permutations to ensure bidirectional connection
     def add_edges(self,graph,hashtags):
         added_edges = False
         for p in permutations(hashtags):
@@ -89,7 +93,9 @@ class WindowAvgDegree(object):
     #         for c in combinations(hashtags,i):
     #             add_single_edge(tweet,c)
     
+    
     # method to calculate graph degree
+    # remove nodes that no longer have connections
     def avg_degree_and_prune(self,graph):
         num_nodes = len(graph.keys())
         degrees = 0
@@ -99,26 +105,27 @@ class WindowAvgDegree(object):
                 self.graph.pop(key,None)
         return round(degrees/num_nodes,2)
     
-    def find_evicted_timestamps(self, curr_timestamp):
+    def evict_timestamps(self, curr_timestamp):
         evicted_timestamps = []
         while (not self.time_queue.isEmpty() 
                and (curr_timestamp - self.time_queue.peek() > self.num_ms_in_60s)):
+            # eviction with dequeue
             evicted_timestamps.append(self.time_queue.dequeue())
         return evicted_timestamps
 
-    def find_evicted_hashtags(self,evicted_timestamps):
+    def evict_hashtags(self,evicted_timestamps):
         evicted_hashtags = []
         for timestamp in evicted_timestamps:
-            hashtags = self.time_dict.pop(timestamp,[])
-            evicted_hashtags.append(hashtags)
+            # eviction with pop
+            evicted_hashtags.append(self.time_dict.pop(timestamp,[]))
         return evicted_hashtags
         
     def clean_hashtag(self,hashtag):
         (_,newhashtag) = remove_non_ascii(hashtag)
         return newhashtag.lower().strip()
     
+    # extract & clean up hashtags from the tweet
     def extract_hash_tags(self,tweet):
-        #hashtags = [self.clean_hashtag(x['text']) for x in tweet['entities']['hashtags']]
         hashtags = []
         for x in tweet['entities']['hashtags']:
             cleanedhashtag = self.clean_hashtag(x['text'])
@@ -126,16 +133,16 @@ class WindowAvgDegree(object):
                 hashtags.append(cleanedhashtag)
         return hashtags
     
+    # process a single tweet
     def process_tweet(self,tweet):
         if not tweet['entities']['hashtags']:
-            return
+            return # becaseu there are no hashtags
         
         hashtags = self.extract_hash_tags(tweet)
         curr_timestamp = int(tweet['timestamp_ms'])
-        evicted_timestamps = self.find_evicted_timestamps(curr_timestamp)
-        evicted_hashtags = self.find_evicted_hashtags(evicted_timestamps)
+        evicted_timestamps = self.evict_timestamps(curr_timestamp)
+        evicted_hashtags = self.evict_hashtags(evicted_timestamps)
         
-        # TODO
         has_removed_edges = False
         if evicted_hashtags:
             has_removed_edges = self.remove_edges(self.graph, evicted_hashtags)
@@ -156,7 +163,7 @@ class WindowAvgDegree(object):
             
         return self.degree
         
-    def read_and_graph(self,infname,outfname):
+    def read_input_and_generate_graph(self,infname,outfname):
         self.reset_datastructures()
         target = open(outfname,'w')
         target.truncate()
@@ -168,11 +175,10 @@ class WindowAvgDegree(object):
                     target.write(str(degree)+"\n")
         target.close()
     
-    
 def main():
     print("processing")
     deg = WindowAvgDegree()
-    deg.read_and_graph(sys.argv[1],sys.argv[2])
+    deg.read_input_and_generate_graph(sys.argv[1],sys.argv[2])
     print("done")
 
 if __name__ == "__main__":
