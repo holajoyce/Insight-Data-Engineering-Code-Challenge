@@ -4,6 +4,7 @@
 import json
 import sys
 import re
+import time
 
 infname = "../tweet_input/tweets.txt"
 outfname = "../tweet_output/ft1.txt"
@@ -43,8 +44,11 @@ def read_file_and_clean(infname,outfname):
 
 def main():
     print("processing")
+    start = time.time()
     read_file_and_clean(sys.argv[1],sys.argv[2])
-    print("done")
+    end = time.time()
+    elapsed = end - start
+    print("done in "+str(elapsed)+"s")
 
 if __name__ == "__main__":
     main()

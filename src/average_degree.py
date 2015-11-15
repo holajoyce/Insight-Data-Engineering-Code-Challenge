@@ -3,11 +3,9 @@ from pybloomfilter import BloomFilter
 import logging
 import json
 import sys
-import re
-from itertools import permutations
+# from itertools import permutations
 from itertools import combinations
 from tweets_cleaned import remove_non_ascii
-import datetime
 import time
 
 # can use heapq instead if tweets will be inputted out of order
@@ -183,6 +181,8 @@ class WindowAvgDegree(object):
         return self.degree
         
     def read_input_and_generate_graph(self):
+        
+        # reset everything on a new run of this method
         self.reset_datastructures()
         target = open(self.outfname,'w')
         target.truncate()
