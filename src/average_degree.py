@@ -1,5 +1,5 @@
 # example of program that calculates the average degree of hashtags
-
+from pybloomfilter import BloomFilter
 import logging
 import json
 import sys
@@ -7,6 +7,8 @@ import re
 from itertools import permutations
 from itertools import combinations
 from tweets_cleaned import remove_non_ascii
+import datetime
+import time
 
 # can use heapq instead if tweets will be inputted out of order
 class Queue:
@@ -30,11 +32,18 @@ class WindowAvgDegree(object):
     outfname = "../tweet_output/ft1.txt"
     num_ms_in_60s = 60000
     degree=0
+    degree_of_current_node =0
     
-    def __init__(self):
+    def __init__(self,infilename, outfilename):
+        self.infname = infilename
+        self.outfname = outfilename
         self.reset_datastructures()
     
     def reset_datastructures(self):
+        self.degree = 0
+        self.degree_of_current_node = 0;
+        self.number_of_evictions = 0;
+        
         # python dictionary are hashtables (no ordering)
         self.time_dict = {}
         
@@ -45,16 +54,16 @@ class WindowAvgDegree(object):
         self.graph = {}
             
     # deprecated, do not use
-    def extract_hashtags(self,tweet):
-        hashtags= set(pt[1:] for pt in tweet.split() if pt.startswith('#'))
-        return [item.lower() for item in hashtags]
+#     def extract_hashtags(self,tweet):
+#         hashtags= set(pt[1:] for pt in tweet.split() if pt.startswith('#'))
+#         return [item.lower() for item in hashtags]
     
     def remove_single_edge(self,graph,hashtags):
         has_removed_edge = False
         prev_hashtag = None
         for hashtag in hashtags:
             if not prev_hashtag == None:
-                if hashtag in graph[prev_hashtag] :
+                if prev_hashtag in graph and hashtag in graph[prev_hashtag] :
                     graph[prev_hashtag].remove(hashtag)
                     has_removed_edge = True
             prev_hashtag = hashtag
@@ -74,6 +83,7 @@ class WindowAvgDegree(object):
         for hashtag in hashtags:
             if not prev_hashtag==None:
                 if not prev_hashtag in graph.keys():
+#                     graph[prev_hashtag] = BloomFilter(10000,0.01,'filter.bloom')
                     graph[prev_hashtag] = set()
                 if(not hashtag in graph[prev_hashtag]):
                     graph[prev_hashtag].add(hashtag)
@@ -94,16 +104,19 @@ class WindowAvgDegree(object):
     #             add_single_edge(tweet,c)
     
     
+    def update_degree(self,value):
+        self.degree_of_current_node+= len(value)
+        return value
+    
     # method to calculate graph degree
     # remove nodes that no longer have connections
-    def avg_degree_and_prune(self,graph):
-        num_nodes = len(graph.keys())
-        degrees = 0
-        for key in graph.keys():
-            degrees +=  len(graph[key])
-            if len(graph[key])==0:
-                self.graph.pop(key,None)
-        return round(degrees/num_nodes,2)
+    def avg_degree_and_prune(self):
+        # update singleton variable (count of connected nodes)
+        self.degree_of_current_node = 0;
+        # update graph
+        self.graph = { k : self.update_degree(v) for k,v in self.graph.items() if v}
+        # return degree
+        return round(self.degree_of_current_node/len(self.graph.keys()),2)
     
     def evict_timestamps(self, curr_timestamp):
         evicted_timestamps = []
@@ -135,8 +148,9 @@ class WindowAvgDegree(object):
     
     # process a single tweet
     def process_tweet(self,tweet):
+        
         if not tweet['entities']['hashtags']:
-            return # becaseu there are no hashtags
+            return self.degree  # becaseu there are no hashtags
         
         hashtags = self.extract_hash_tags(tweet)
         curr_timestamp = int(tweet['timestamp_ms'])
@@ -144,42 +158,52 @@ class WindowAvgDegree(object):
         evicted_hashtags = self.evict_hashtags(evicted_timestamps)
         
         has_removed_edges = False
-        if evicted_hashtags:
+        if evicted_hashtags and evicted_timestamps:
+            self.number_of_evictions+=1
+            print(str(self.number_of_evictions)+" "+evicted_hashtags.__str__())
             has_removed_edges = self.remove_edges(self.graph, evicted_hashtags)
-        
+#          
         has_added_edges = False
         if len(hashtags)>1:
             # add edges to graph
             has_added_edges  = self.add_edges(self.graph, hashtags)
-        
+          
             # enqueue time
             self.time_queue.enqueue(curr_timestamp)
-            
+              
             # store hashtags related to timestamp
             self.time_dict[curr_timestamp] = hashtags
-            
+          
+        # update degree
         if has_removed_edges or has_added_edges: 
-            self.degree = self.avg_degree_and_prune(self.graph)
-            
+            self.degree = self.avg_degree_and_prune()
+
         return self.degree
         
-    def read_input_and_generate_graph(self,infname,outfname):
+    def read_input_and_generate_graph(self):
         self.reset_datastructures()
-        target = open(outfname,'w')
+        target = open(self.outfname,'w')
         target.truncate()
         with open(self.infname, 'r+') as f:
             for tweet_json in f:
                 tweet = json.loads(tweet_json)
                 if 'text' in tweet and 'timestamp_ms' in tweet:
-                    degree = self.process_tweet(tweet)
-                    target.write(str(degree)+"\n")
+                    self.process_tweet(tweet)
+                    target.write(str(self.degree)+"\n")
         target.close()
     
 def main():
     print("processing")
-    deg = WindowAvgDegree()
-    deg.read_input_and_generate_graph(sys.argv[1],sys.argv[2])
-    print("done")
+    
+    start = time.time()
+    
+    deg = WindowAvgDegree(sys.argv[1],sys.argv[2])
+    deg.read_input_and_generate_graph()
+    
+    end = time.time()
+    elapsed =  end-start
+
+    print("done in "+str(elapsed)+"s")
 
 if __name__ == "__main__":
     main()
