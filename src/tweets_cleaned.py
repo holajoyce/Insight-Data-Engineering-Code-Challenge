@@ -3,6 +3,7 @@
 
 import json
 import sys
+import re
 
 infname = "../tweet_input/tweets.txt"
 outfname = "../tweet_output/ft1.txt"
@@ -17,7 +18,8 @@ def clean_tweet(tweet):
         else:
             cleaned=True
     newtweet = newtweet if cleaned else tweet
-    newtweet = newtweet.replace('\n','\\n').replace('\"','\\"').replace("\/","\\/")
+    newtweet = re.sub(r"(\n|\t)"," ", newtweet)
+    newtweet = newtweet.replace("\/","/").replace("\\\\",'\\').replace('\"','"').replace("\'","'")
     return (1 if cleaned else 0,newtweet)
     
 
