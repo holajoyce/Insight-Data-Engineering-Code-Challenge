@@ -41,45 +41,34 @@ class WindowAvgDegreeTest(unittest.TestCase):
                 log_lines.append(x.msg)
         return log_lines
      
-    def find_log_lines_by_function_nam(self,l,func_name):
-        log_lines = []
-        for x in l.records:
-            if x.funcName == func_name:
-                log_lines.append(x.msg)
-        return log_lines   
+#     def setUp(self):
+#         self.deg = WindowAvgDegree(self.infname,self.outfname)
+#         self.deg.read_input_and_generate_graph()
     
     @log_capture(level=LogLevels.evict_timestamps.value)
     def test_evict_timestamps(self,l):
         self.deg.read_input_and_generate_graph()
-        log_lines = self.find_log_lines(l,LogLevels.evict_timestamps.value)
-        evicted_timestamp  = log_lines[0][0]
-        print("evicted timestamp: "+str(evicted_timestamp))
-        self.assertEqual(evicted_timestamp,1446141061000)
+        log_lines = self.find_log_lines(l,l.level)
+        self.assertEqual(log_lines[0][0],1446141061000)
   
     @log_capture(level=LogLevels.evict_hashtags.value)
     def test_evict_hashtags(self,l):
         self.deg.read_input_and_generate_graph()
-        log_lines = self.find_log_lines(l,LogLevels.evict_hashtags.value)
-        first_evicted_hashtag = log_lines[0][0][0]
-        second_evicted_hashtag = log_lines[0][0][1]
-        self.assertEqual(first_evicted_hashtag,"spark")
-        self.assertEqual(second_evicted_hashtag,"apache")
+        log_lines = self.find_log_lines(l,l.level)
+        self.assertEqual(log_lines[0][0][0],"spark")
+        self.assertEqual(log_lines[0][0][1],"apache")
   
     @log_capture(level=LogLevels.avg_degree_and_prune.value)
     def test_get_avg_degree(self,l):
         self.deg.read_input_and_generate_graph()
-        log_lines = self.find_log_lines(l, LogLevels.avg_degree_and_prune.value)
-        ending_avg_degree = log_lines[len(log_lines)-1]
-        desired = float(1.67)
-        print("ending avg degree: "+str(ending_avg_degree))
-        self.assertAlmostEqual(ending_avg_degree,desired,2)
+        log_lines = self.find_log_lines(l, l.level)
+        self.assertAlmostEqual(log_lines[-1],float(1.67),2)
 
     @log_capture(level=LogLevels.read_input_and_generate_graph.value)
     def test_graph(self,l):
         self.deg.read_input_and_generate_graph()
-        log_lines = self.find_log_lines(l, LogLevels.read_input_and_generate_graph.value)
-        log_line_last = json.loads(log_lines[len(log_lines)-1]) #.replace("'", '"')
-        compare(log_line_last, json.loads('{"spark": ["flink", "hbase"], "storm": ["apache", "hadoop"], "apache": ["storm", "hadoop"], "flink": ["spark"], "hbase": ["spark"], "hadoop": ["storm", "apache"]}'))
+        log_lines = self.find_log_lines(l, l.level)
+        compare(json.loads(log_lines[len(log_lines)-1]), json.loads('{"spark": ["flink", "hbase"], "storm": ["apache", "hadoop"], "apache": ["storm", "hadoop"], "flink": ["spark"], "hbase": ["spark"], "hadoop": ["storm", "apache"]}'))
 
 if __name__ == '__main__':
     unittest.main()
