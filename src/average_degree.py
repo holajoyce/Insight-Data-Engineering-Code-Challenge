@@ -30,7 +30,7 @@ class Queue:
         return len(self.items)
     
 class LogLevels(Enum):
-    process_tweet = 9
+    read_input_and_generate_graph = 9
     evict_hashtags = 8
     evict_timestamps =7
     avg_degree_and_prune = 6
@@ -164,6 +164,8 @@ class WindowAvgDegree(object):
         self.graph = { k : self.update_degree(v) for k,v in self.graph.items() if v}
         # return degree
         self.degree =  round(self.degree_of_current_node/len(self.graph.keys()),2)
+        self.logger.setLevel(LogLevels.avg_degree_and_prune.value)
+        self.logger.log(LogLevels.avg_degree_and_prune.value,self.degree)
         return self.degree
     
     def evict_timestamps(self, curr_timestamp):
@@ -217,9 +219,6 @@ class WindowAvgDegree(object):
         has_removed_edges = False
         if evicted_hashtags and evicted_timestamps:
             self.number_of_evictions+=1
-            lvl = LogLevels.process_tweet.value
-            self.logger.setLevel(lvl)
-            self.logger.log(lvl,str(self.number_of_evictions)+" "+evicted_hashtags.__str__())
             has_removed_edges = self.remove_edges(self.graph, evicted_hashtags)
 #          
         has_added_edges = False
@@ -236,8 +235,6 @@ class WindowAvgDegree(object):
         # update degree
         if has_removed_edges or has_added_edges: 
             self.degree = self.avg_degree_and_prune()
-            self.logger.setLevel(LogLevels.process_tweet.value)
-            self.logger.log(LogLevels.process_tweet.value,self.degree)
         return self.degree
         
     def read_input_and_generate_graph(self):
@@ -250,6 +247,8 @@ class WindowAvgDegree(object):
                 tweet = json.loads(tweet_json)
                 if 'text' in tweet and 'timestamp_ms' in tweet:
                     self.process_tweet(tweet)
+                    self.logger.setLevel(LogLevels.read_input_and_generate_graph.value)
+                    self.logger.log(LogLevels.read_input_and_generate_graph.value,repr(self.graph))
                     target.write(str(self.degree)+"\n")
         target.close()
 
