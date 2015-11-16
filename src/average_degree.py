@@ -75,12 +75,13 @@ class WindowAvgDegree(object):
         logger.addHandler(ch)
     
     def __init__(self,infilename="", outfilename=""):
-#         for key in self.loggers.keys():
-#             self.init_logger(self.loggers[key])
         self.init_logger(self.logger)
         self.infname = infilename
         self.outfname = outfilename
         self.reset_datastructures()
+        
+    def get_jsonifiable_graph(self,graph):
+        return { k : list(v) for k,v in self.graph.items() if v}
     
     def reset_datastructures(self):
         self.degree = 0
@@ -151,9 +152,12 @@ class WindowAvgDegree(object):
         has_added_edges =  True if num_edges_added>0 else  False
         return has_added_edges
     
-    def update_degree(self,value):
+    def update_degree(self,key,value):
         self.degree_of_current_node+= len(value)
+#         self.jsonifiable_graph[key] = list(value)
         return value
+    
+    # because the values in the dict is a set, it's not jsonifiable
     
     # method to calculate graph degree
     # remove nodes that no longer have connections
@@ -161,7 +165,7 @@ class WindowAvgDegree(object):
         # update singleton variable (count of connected nodes)
         self.degree_of_current_node = 0;
         # update graph
-        self.graph = { k : self.update_degree(v) for k,v in self.graph.items() if v}
+        self.graph = { k : self.update_degree(k,v) for k,v in self.graph.items() if v}
         # return degree
         self.degree =  round(self.degree_of_current_node/len(self.graph.keys()),2)
         self.logger.setLevel(LogLevels.avg_degree_and_prune.value)
@@ -247,10 +251,13 @@ class WindowAvgDegree(object):
                 tweet = json.loads(tweet_json)
                 if 'text' in tweet and 'timestamp_ms' in tweet:
                     self.process_tweet(tweet)
-                    self.logger.setLevel(LogLevels.read_input_and_generate_graph.value)
-                    self.logger.log(LogLevels.read_input_and_generate_graph.value,repr(self.graph))
                     target.write(str(self.degree)+"\n")
+                    
+            # log the outcome
+            self.logger.setLevel(LogLevels.read_input_and_generate_graph.value)
+            self.logger.log(LogLevels.read_input_and_generate_graph.value,json.dumps(self.get_jsonifiable_graph(self.graph)))
         target.close()
+        
 
 def main():
     print("processing")

@@ -55,7 +55,7 @@ class WindowAvgDegreeTest(unittest.TestCase):
         evicted_timestamp  = log_lines[0][0]
         print("evicted timestamp: "+str(evicted_timestamp))
         self.assertEqual(evicted_timestamp,1446141061000)
- 
+  
     @log_capture(level=LogLevels.evict_hashtags.value)
     def test_evict_hashtags(self,l):
         self.deg.read_input_and_generate_graph()
@@ -64,7 +64,7 @@ class WindowAvgDegreeTest(unittest.TestCase):
         second_evicted_hashtag = log_lines[0][0][1]
         self.assertEqual(first_evicted_hashtag,"spark")
         self.assertEqual(second_evicted_hashtag,"apache")
- 
+  
     @log_capture(level=LogLevels.avg_degree_and_prune.value)
     def test_get_avg_degree(self,l):
         self.deg.read_input_and_generate_graph()
@@ -74,15 +74,12 @@ class WindowAvgDegreeTest(unittest.TestCase):
         print("ending avg degree: "+str(ending_avg_degree))
         self.assertAlmostEqual(ending_avg_degree,desired,2)
 
-#     @log_capture(level=LogLevels.read_input_and_generate_graph.value)
-#     def test_graph(self,l):
-#         self.deg.read_input_and_generate_graph()
-#         log_lines = self.find_log_lines(l, LogLevels.read_input_and_generate_graph.value)
-#         print(log_lines)
-#         log_line_last = log_lines[len(log_lines)-1].replace("'", '"')
-#         print(log_line_last)
-#         self.assertEqual(, "{'hadoop': {'apache', 'storm'}, 'flink': {'spark'}, 'hbase': {'spark'}, 'apache': {'hadoop', 'storm', 'spark'}, 'storm': {'hadoop', 'apache'}, 'spark': {'hbase', 'apache', 'flink'}}")
-#         compare(log_line_last, json.loads("{'hbase': {'spark'}, 'flink': {'spark'}, 'hadoop': {'apache', 'storm'}, 'apache': {'hadoop', 'storm'}, 'storm': {'hadoop', 'apache'}, 'spark': {'hbase', 'flink'}}"))
+    @log_capture(level=LogLevels.read_input_and_generate_graph.value)
+    def test_graph(self,l):
+        self.deg.read_input_and_generate_graph()
+        log_lines = self.find_log_lines(l, LogLevels.read_input_and_generate_graph.value)
+        log_line_last = json.loads(log_lines[len(log_lines)-1]) #.replace("'", '"')
+        compare(log_line_last, json.loads('{"spark": ["flink", "hbase"], "storm": ["apache", "hadoop"], "apache": ["storm", "hadoop"], "flink": ["spark"], "hbase": ["spark"], "hadoop": ["storm", "apache"]}'))
 
 if __name__ == '__main__':
     unittest.main()
