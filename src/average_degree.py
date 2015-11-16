@@ -7,6 +7,10 @@ import sys
 from itertools import combinations
 from tweets_cleaned import remove_non_ascii
 import time
+import logging
+from logging import getLogger
+import enum
+from enum import Enum
 
 # can use heapq instead if tweets will be inputted out of order
 class Queue:
@@ -24,23 +28,67 @@ class Queue:
         return self.items.pop()
     def size(self):
         return len(self.items)
+    
+class LogLevels(Enum):
+    process_tweet = 9
+    evict_hashtags = 8
+    evict_timestamps =7
+    avg_degree_and_prune = 6
+    update_degree = 5
+    add_edges =4
+    add_single_edge = 3
+    remove_edges = 2
+    remove_single_edge = 1
+     
 
 class WindowAvgDegree(object):
+    
+    # python 2 no enum support
+    
     infname = "../tweet_input/tweets.txt"
     outfname = "../tweet_output/ft1.txt"
-    num_ms_in_60s = 60000
+    NUM_MS_IN_60s = 60000
+    logging.addLevelName(1,"process_tw")
+
     degree=0
     degree_of_current_node =0
+#     LogLevels = enum(
+#                      remove_single_edge=9
+#               ,remove_edges=8
+#             ,add_single_edge=7
+#             ,add_edges=6
+#             ,update_degree=5
+#             ,avg_degree_and_prune=4
+#             ,evict_timestamps=3
+#             ,evict_hashtags=2
+#             ,process_tweet=1
+#                      )
+    logger = logging.getLogger("WindowAvgDegree")
     
-    def __init__(self,infilename, outfilename):
+    def init_logger(self,logger):
+        logger.setLevel(logging.DEBUG)
+        
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("%(asctime)s - %(filename)s:%(lineno)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s")
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+    
+    def __init__(self,infilename="", outfilename=""):
+#         for key in self.loggers.keys():
+#             self.init_logger(self.loggers[key])
+        self.init_logger(self.logger)
         self.infname = infilename
         self.outfname = outfilename
         self.reset_datastructures()
     
     def reset_datastructures(self):
         self.degree = 0
+        
+        # singletons
         self.degree_of_current_node = 0;
         self.number_of_evictions = 0;
+        self.evicted_time_stamps = []
         
         # python dictionary are hashtables (no ordering)
         self.time_dict = {}
@@ -121,9 +169,13 @@ class WindowAvgDegree(object):
     def evict_timestamps(self, curr_timestamp):
         evicted_timestamps = []
         while (not self.time_queue.isEmpty() 
-               and (curr_timestamp - self.time_queue.peek() > self.num_ms_in_60s)):
+               and (curr_timestamp - self.time_queue.peek() > self.NUM_MS_IN_60s)):
             # eviction with dequeue
             evicted_timestamps.append(self.time_queue.dequeue())
+        if evicted_timestamps:
+            lvl =int(LogLevels.evict_timestamps.value)
+            self.logger.setLevel(lvl)
+            self.logger.log(lvl,evicted_timestamps)
         return evicted_timestamps
 
     def evict_hashtags(self,evicted_timestamps):
@@ -131,6 +183,11 @@ class WindowAvgDegree(object):
         for timestamp in evicted_timestamps:
             # eviction with pop
             evicted_hashtags.append(self.time_dict.pop(timestamp,[]))
+        
+        if evicted_hashtags:
+            lvl =int(LogLevels.evict_hashtags.value)
+            self.logger.setLevel(lvl)
+            self.logger.log(lvl,evicted_hashtags)
         return evicted_hashtags
         
     def clean_hashtag(self,hashtag):
@@ -148,7 +205,6 @@ class WindowAvgDegree(object):
     
     # process a single tweet
     def process_tweet(self,tweet):
-        
         if not tweet['entities']['hashtags']:
             return self.degree  # becaseu there are no hashtags
         
@@ -156,11 +212,14 @@ class WindowAvgDegree(object):
         curr_timestamp = int(tweet['timestamp_ms'])
         evicted_timestamps = self.evict_timestamps(curr_timestamp)
         evicted_hashtags = self.evict_hashtags(evicted_timestamps)
+        self.evicted_time_stamps = evicted_timestamps
         
         has_removed_edges = False
         if evicted_hashtags and evicted_timestamps:
             self.number_of_evictions+=1
-            print(str(self.number_of_evictions)+" "+evicted_hashtags.__str__())
+            lvl = LogLevels.process_tweet.value
+            self.logger.setLevel(lvl)
+            self.logger.log(lvl,str(self.number_of_evictions)+" "+evicted_hashtags.__str__())
             has_removed_edges = self.remove_edges(self.graph, evicted_hashtags)
 #          
         has_added_edges = False
@@ -177,11 +236,11 @@ class WindowAvgDegree(object):
         # update degree
         if has_removed_edges or has_added_edges: 
             self.degree = self.avg_degree_and_prune()
-
+            self.logger.setLevel(LogLevels.process_tweet.value)
+            self.logger.log(LogLevels.process_tweet.value,self.degree)
         return self.degree
         
     def read_input_and_generate_graph(self):
-        
         # reset everything on a new run of this method
         self.reset_datastructures()
         target = open(self.outfname,'w')
@@ -193,7 +252,7 @@ class WindowAvgDegree(object):
                     self.process_tweet(tweet)
                     target.write(str(self.degree)+"\n")
         target.close()
-    
+
 def main():
     print("processing")
     
@@ -201,6 +260,7 @@ def main():
     
     deg = WindowAvgDegree(sys.argv[1],sys.argv[2])
     deg.read_input_and_generate_graph()
+#     deg.nothing()
     
     end = time.time()
     elapsed =  end-start
